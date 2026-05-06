@@ -24,15 +24,15 @@ def infer():
         image_bytes = request.data
 
         # convert to numpy
-        np_arr = np.frombuffer(image_bytes, np.uint8)
+        #np_arr = np.frombuffer(image_bytes, np.uint8)
 
         # decode image
-        image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  
+        #image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  
 
         raw_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-        if image is None:
+        if raw_image is None:
             return jsonify({"error": "Image decoding failed"}), 400
 
         print("received image details:")
@@ -41,8 +41,8 @@ def infer():
         #print("shape:", raw_image.shape)
 
         # 🚀 YOLO inference
-        results = model.predict(source=image, conf=CONF_THRESHOLD, imgsz=1280)[0]
-        #results = model.predict(source=image, conf=CONF_THRESHOLD)[0]
+        #results = model.predict(source=image, conf=CONF_THRESHOLD, imgsz=1280)[0]
+        results = model.predict(source=raw_image, conf=CONF_THRESHOLD)[0]
         
         #saveFiles(image_bytes,raw_image,results.plot())
         
