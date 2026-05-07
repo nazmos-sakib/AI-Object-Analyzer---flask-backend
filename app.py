@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, send_file, jsonify
 from ultralytics import YOLO
 import numpy as np
 import cv2
@@ -16,39 +16,18 @@ ensure_directories()
 
 model = YOLO(MODEL_PATH, task='detect')
 
-@app.route("/infer", methods=["POST"])
-def infer():
-
+@app.route("/infer/json", methods=["POST"])
+def infer_json():
     try:
         # 📥 receive raw JPEG bytes
         image_bytes = request.data
 
-        # convert to numpy
-        #np_arr = np.frombuffer(image_bytes, np.uint8)
-
-        # decode image
-        #image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-        #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  
-
-        raw_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
-        if raw_image is None:
-            return jsonify({"error": "Image decoding failed"}), 400
-
-        print("received image details:")
-        #print("dtype:", raw_image.dtype)
-        #print("min/max:", raw_image.min(), raw_image.max())
-        #print("shape:", raw_image.shape)
-
-        # 🚀 YOLO inference
-        #results = model.predict(source=image, conf=CONF_THRESHOLD, imgsz=1280)[0]
-        results = model.predict(source=raw_image, conf=CONF_THRESHOLD)[0]
-        
-        #saveFiles(image_bytes,raw_image,results.plot())
-        
-        detections = [] 
+        _, results = run_inference(image_bytes)
+         
+        detections = []
 
         for box in results.boxes:
+
             x1, y1, x2, y2 = box.xyxy[0].tolist()
             conf = float(box.conf[0])
             cls = int(box.cls[0])
@@ -65,6 +44,41 @@ def infer():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/infer/image", methods=["POST"])
+def infer_image():
+
+    try:
+        image_bytes = request.data
+
+        _, results = run_inference(image_bytes)
+
+        # Draw boxes
+        plotted = results.plot()
+        # BGR -> RGB
+        plotted_rgb = cv2.cvtColor(
+            plotted,
+            cv2.COLOR_BGR2RGB
+        )
+
+        # numpy -> PIL
+        output_image = Image.fromarray(plotted_rgb)
+
+        # save to memory
+        img_io = io.BytesIO()
+        output_image.save(img_io, format="JPEG")
+        img_io.seek(0)
+
+        return send_file(
+            img_io,
+            mimetype="image/jpeg"
+        )
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e)
+        }), 500
 
 @app.route("/test", methods=["GET", "POST"])
 def test():
@@ -93,6 +107,22 @@ def test_res():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def run_inference(image_bytes):
+
+    # bytes -> PIL image
+    raw_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    # inference
+    #results = model.predict(source=image, conf=CONF_THRESHOLD, imgsz=1280)[0]
+
+    results = model.predict(
+        source=raw_image,
+        conf=CONF_THRESHOLD
+    )[0]
+
+    #saveFiles(image_bytes,raw_image,results.plot())
+
+    return raw_image, results
 
 
 
