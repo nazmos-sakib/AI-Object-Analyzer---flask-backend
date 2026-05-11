@@ -5,7 +5,7 @@ import cv2
 from datetime import datetime
 import os
 from PIL import Image
-import io
+import io, time
 from file_utils import ensure_directories, saveFiles
 
 from config import MODEL_PATH, CONF_THRESHOLD
@@ -15,15 +15,22 @@ app = Flask(__name__)
 ensure_directories()
 
 model = YOLO(MODEL_PATH, task='detect')
+#model.to("cpu") #use cpu only
 
 @app.route("/infer/json", methods=["POST"])
 def infer_json():
+    function_started_at = time.perf_counter()
     try:
         # 📥 receive raw JPEG bytes
         image_bytes = request.data
 
+        start = time.perf_counter()
+
         _, results = run_inference(image_bytes)
-         
+
+        inference_time = (time.perf_counter() - start) * 1000
+        print(f"Inference time: {inference_time:.4f} ms") 
+
         detections = []
 
         for box in results.boxes:
@@ -37,7 +44,9 @@ def infer_json():
                 "confidence": conf,
                 "bbox": [x1, y1, x2, y2]
             })
-
+        #performance
+        total_time = (time.perf_counter() - function_started_at) * 1000
+        print(f"total execution time: {total_time:.4f} ms")
         return jsonify({
             "detections": detections
         })
